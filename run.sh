@@ -13,7 +13,7 @@ ok()   { printf '%s✔%s %s\n' "$OK" "$RST" "$*"; }
 warn() { printf '%s!%s %s\n' "$WARN" "$RST" "$*"; }
 die()  { printf '%s✘%s %s\n' "$ERR" "$RST" "$*" >&2; exit 1; }
 
-PORT="${PORT:-8877}"
+PORT="${PORT:-9000}"
 HOST="${HOST:-0.0.0.0}"
 VENV="${VENV:-.venv}"
 

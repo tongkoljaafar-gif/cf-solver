@@ -14,6 +14,8 @@ from urllib.parse import urlparse
 
 from contextlib import asynccontextmanager
 from fastapi import Body, Depends, FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field
 
@@ -71,15 +73,26 @@ app = FastAPI(
         "tryItOutEnabled": True,
         "displayRequestDuration": True,
         "filter": True,
-    },
+    } ,
 )
+
+# ── Static web UI (served at /) ─────────────────────────────────────────
+_WWW_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "www")
+if os.path.isdir(_WWW_DIR):
+    _ST = os.path.join(_WWW_DIR, "assets")
+    if os.path.isdir(_ST):
+        app.mount("/assets", StaticFiles(directory=_ST), name="assets")
+
+    @app.get("/", include_in_schema=False)
+    async def _index():
+        return FileResponse(os.path.join(_WWW_DIR, "index.html"))
 
 # Non-enforcing Bearer scheme: makes Swagger UI show an Authorize button and forward the
 # token on "Try it out". auto_error=False means a missing/malformed token yields None and
 # the endpoint proceeds — real enforcement stays at the Caddy layer (public domain only).
 _bearer = HTTPBearer(auto_error=False, description="Bearer token (required on the public "
                      "domain; enforced by the reverse proxy). Ignored for local calls.")
-SUPPORTED = ["turnstile", "recaptcha", "hcaptcha", "cloudflare", "awswaf", "botguard", "datadome", "perimeterx", "akamai", "aliyun", "arkose", "x5sec", "tencent", "geetest", "kasada", "mtcaptcha", "altcha", "cybersiara", "imperva", "friendly", "geetest_v3", "image_to_text"] + ["cap", "anubis", "mcaptcha", "procaptcha", "rotate", "yidun", "dingxiang", "shumei", "douyin", "vaptcha", "goaway", "recaptcha_audio", "cerberus", "yandex", "hcaptcha_enterprise", "zhihu", "steam", "grid", "coordinates", "draw_around", "drag_drop", "bounding_box", "tspd", "vk", "cloudflare_challenge", "basilisk", "binance", "captchafox"]
+SUPPORTED = ["turnstile_v2", "turnstile", "recaptcha", "hcaptcha", "cloudflare", "awswaf", "botguard", "datadome", "perimeterx", "akamai", "aliyun", "arkose", "x5sec", "tencent", "geetest", "kasada", "mtcaptcha", "altcha", "cybersiara", "imperva", "friendly", "geetest_v3", "image_to_text"] + ["cap", "anubis", "mcaptcha", "procaptcha", "rotate", "yidun", "dingxiang", "shumei", "douyin", "vaptcha", "goaway", "recaptcha_audio", "cerberus", "yandex", "hcaptcha_enterprise", "zhihu", "steam", "grid", "coordinates", "draw_around", "drag_drop", "bounding_box", "tspd", "vk", "cloudflare_challenge", "basilisk", "binance", "captchafox"]
 # Page-level solvers that harvest a cookie/token from the live page (no sitekey needed).
 _PAGE_LEVEL = ("cloudflare", "awswaf", "botguard", "datadome", "perimeterx", "akamai", "x5sec")
 # Solvers that supply their own canonical URL (caller need not pass `url`).
@@ -216,6 +229,8 @@ class SolveRequest(BaseModel):
         None, description="Turnstile action, or reCAPTCHA v3/invisible action. "
         "For hCaptcha, the literal \"invisible\" selects the invisible-execute path.")
     cdata: Optional[str] = Field(None, description="Turnstile customer data bound into the token.")
+    backend: Optional[str] = Field(
+        "camoufox", description="turnstile_v2 only: browser engine — 'camoufox' (default) | 'patchright'.")
     real_page: Optional[bool] = Field(
         False, description="Solve on the live target page (navigate + drive) instead of a stub.")
     timeout_s: Optional[int] = Field(
@@ -499,23 +514,46 @@ async def _dispatch(req: SolveRequest) -> dict:
     # strip data-URI prefix so callers can pass "data:image/png;base64,..." as-is
     if req.image_b64 and "," in req.image_b64 and req.image_b64.startswith("data:"):
         req.image_b64 = req.image_b64.split(",", 1)[1]
-    if req.type == "turnstile":
-        from solvers.turnstile.solve import solve_turnstile, solve_and_verify, solve_turnstile_realpage
-        # route-intercept turnstile raises TimeoutError on no-token; catch it here so an
-        # unsolved turnstile returns a uniform 200 {error}, not a collision with the real
-        # asyncio deadline (408).
+    if req.type == "turnstile_v2":
+        from solvers.turnstile_v2.solve import solve_turnstile
         try:
-            if req.verify_url and req.verify_payload:
-                r = await solve_and_verify(
-                    req.sitekey, req.verify_url, req.verify_payload, req.action,
-                    cdata=req.cdata, page_url=req.page_url, proxy=req.proxy)
-            elif req.real_page:
-                actions, fetches = _extract(req)
-                r = await solve_turnstile_realpage(
-                    req.url, req.sitekey, req.timeout_s, actions, fetches, proxy=req.proxy)
-            else:
-                r = await solve_turnstile(
-                    req.sitekey, req.url, req.action, req.cdata, proxy=req.proxy)
+            r = await solve_turnstile(
+                req.url or "", sitekey=req.sitekey, action=req.action,
+                cdata=req.cdata, proxy=req.proxy,
+                backend=req.backend or "camoufox", real_page=bool(req.real_page),
+                timeout_s=req.timeout_s or 60)
+        except TimeoutError as e:
+            r = {"token": "", "error": str(e), "method": "route"}
+        return {"type": "turnstile_v2", **r}
+
+    if req.type == "turnstile":
+        # Route through the new engine (camoufox/patchright + curl_cffi auto-grab) so
+        # type=turnstile no longer depends on cloakbrowser. Falls back to the legacy
+        # cloakbrowser solver only if explicitly requested via backend="cloak".
+        if (req.backend or "").lower() == "cloak":
+            from solvers.turnstile.solve import solve_turnstile, solve_and_verify, solve_turnstile_realpage
+            try:
+                if req.verify_url and req.verify_payload:
+                    r = await solve_and_verify(
+                        req.sitekey, req.verify_url, req.verify_payload, req.action,
+                        cdata=req.cdata, page_url=req.page_url, proxy=req.proxy)
+                elif req.real_page:
+                    actions, fetches = _extract(req)
+                    r = await solve_turnstile_realpage(
+                        req.url, req.sitekey, req.timeout_s, actions, fetches, proxy=req.proxy)
+                else:
+                    r = await solve_turnstile(
+                        req.sitekey, req.url, req.action, req.cdata, proxy=req.proxy)
+            except TimeoutError as e:
+                r = {"token": "", "error": str(e), "method": "route"}
+            return {"type": "turnstile", **r}
+        from solvers.turnstile_v2.solve import solve_turnstile as _solve_v2
+        try:
+            r = await _solve_v2(
+                req.url or "", sitekey=req.sitekey, action=req.action,
+                cdata=req.cdata, proxy=req.proxy,
+                backend=req.backend or "camoufox", real_page=bool(req.real_page),
+                timeout_s=req.timeout_s or 60)
         except TimeoutError as e:
             r = {"token": "", "error": str(e), "method": "route"}
         return {"type": "turnstile", **r}
@@ -1041,6 +1079,13 @@ async def solve(req: SolveRequest = Body(..., openapi_examples=_SOLVE_EXAMPLES))
         result = _jsonable(result)
         _report_pool(req, result, acquired)
         _log_solve(req.type, req.sitekey, req.url, result)
+        elapsed = time.time() - _solve_current.get(task_id, {}).get("started_at", time.time())
+        import solvers.stats as _stats
+        _stats.record(req.type, elapsed, _is_solved(result),
+                      engine=result.get("engine"), url=req.url,
+                      token=result.get("token"), error=result.get("error"),
+                      backend=getattr(req, "backend", None),
+                      cache=bool(result.get("cache")))
         return result
     except (TimeoutError, asyncio.TimeoutError):
         if acquired is not None:
@@ -1136,7 +1181,7 @@ def _precheck(req: SolveRequest) -> None:
         raise HTTPException(400, "scene_id and prefix are required for type=aliyun")
     if req.type == "arkose" and not req.public_key:
         raise HTTPException(400, "public_key is required for type=arkose")
-    if req.type not in _PAGE_LEVEL and req.type not in ("aliyun", "arkose", "tencent", "geetest", "kasada", "mtcaptcha", "altcha", "cybersiara", "imperva", "friendly", "geetest_v3", "image_to_text", "cap", "anubis", "mcaptcha", "yidun", "dingxiang", "shumei", "douyin", "vaptcha", "rotate", "goaway", "recaptcha_audio", "cerberus", "yandex", "hcaptcha_enterprise", "zhihu", "steam", "grid", "coordinates", "draw_around", "drag_drop", "bounding_box", "tspd", "vk", "cloudflare_challenge", "basilisk", "binance", "captchafox") and not req.sitekey:
+    if req.type not in _PAGE_LEVEL and req.type not in ("aliyun", "arkose", "tencent", "geetest", "kasada", "mtcaptcha", "altcha", "cybersiara", "imperva", "friendly", "geetest_v3", "image_to_text", "cap", "anubis", "mcaptcha", "yidun", "dingxiang", "shumei", "douyin", "vaptcha", "rotate", "goaway", "recaptcha_audio", "cerberus", "yandex", "hcaptcha_enterprise", "zhihu", "steam", "grid", "coordinates", "draw_around", "drag_drop", "bounding_box", "tspd", "vk", "cloudflare_challenge", "basilisk", "binance", "captchafox", "turnstile_v2", "turnstile") and not req.sitekey:
         raise HTTPException(400, f"sitekey is required for type={req.type}")
     _validate_urls(req)
 
@@ -1339,7 +1384,14 @@ async def pool_check(deep: bool = Query(False)):
             "size": st["size"], "healthy": st["healthy"]}
 
 
+@app.get("/solver/stats", tags=["monitoring"], operation_id="solverStats",
+         summary="Live solver model + request history for the web UI")
+async def solver_stats():
+    import solvers.stats as _stats
+    return _stats.snapshot()
+
+
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", "8877"))
+    port = int(os.getenv("PORT", "9000"))
     uvicorn.run(app, host="0.0.0.0", port=port)

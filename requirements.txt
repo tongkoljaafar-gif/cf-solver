@@ -7,6 +7,10 @@ pydantic
 # humanized selector resolver that rejects frame_locator chains — breaks the
 # reCAPTCHA/hCaptcha checkbox click. Un-pin only with a full solver re-test.
 cloakbrowser==0.5.3
+# turnstile_v2: stealth browser engines + curl_cffi sitekey auto-extraction
+camoufox
+patchright
+curl_cffi
 # akamai sensor backend (headless V8 sensor runner — validates _abck from datacenter IPs)
 wre-client-akamai
 # kasada sensor backend (same wre runtime family — needs a real Kasada target)

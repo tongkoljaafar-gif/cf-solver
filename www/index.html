@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BerylSolver · Control Center</title>
+<meta name="description" content="Self-hosted captcha-solving API. Camoufox, Patchright, curl_cffi. 50 challenge types.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="side-logo">
+      <span class="logo-ic">🌀</span>
+      <span class="logo-txt">Beryl<b>Solver</b></span>
+    </div>
+    <nav class="side-nav">
+      <a class="side-link active" data-page="overview"><span class="ic">📊</span> Overview</a>
+      <a class="side-link" data-page="docs"><span class="ic">📄</span> Docs</a>
+      <a class="side-link" data-page="playground"><span class="ic">🛠</span> Playground</a>
+      <a class="side-link" data-page="history"><span class="ic">🕘</span> History</a>
+      <a class="side-link" data-page="models"><span class="ic">🧠</span> Models</a>
+      <a class="side-link" data-page="engines"><span class="ic">⚙️</span> Engine</a>
+    </nav>
+    <div class="side-foot">
+      <span class="pulse-dot"></span>
+      <span class="muted">:9000 · live</span>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div>
+        <h1 class="page-title" id="ptitle">Overview</h1>
+        <p class="page-sub muted" id="psub">Pemantauan solver model secara real-time.</p>
+      </div>
+      <div class="row">
+        <button class="btn btn-ghost btn-sm" id="btn-refresh">↻ Refresh</button>
+        <span class="mono muted" id="uptime" style="font-size:.78rem;align-self:center">uptime: 0s</span>
+      </div>
+    </header>
+
+    <!-- OVERVIEW -->
+    <div class="page" id="page-overview">
+      <div class="card solver-card">
+        <div class="card-head">
+          <h3>🌀 Solver Model — Live</h3>
+          <span class="live-badge"><span class="pulse-dot"></span> live</span>
+        </div>
+        <div class="stat-grid" id="stat-grid">
+          <div class="stat"><div class="stat-val" id="st-total">0</div><div class="stat-lbl">Total Req</div></div>
+          <div class="stat"><div class="stat-val" id="st-ok">0</div><div class="stat-lbl">Berhasil</div></div>
+          <div class="stat"><div class="stat-val" id="st-fail">0</div><div class="stat-lbl">Gagal</div></div>
+          <div class="stat"><div class="stat-val" id="st-rate">0%</div><div class="stat-lbl">Success Rate</div></div>
+          <div class="stat"><div class="stat-val" id="st-avg">0 ms</div><div class="stat-lbl">Rata-rata ms</div></div>
+          <div class="stat"><div class="stat-val" id="st-max">0 ms</div><div class="stat-lbl">Terlama</div></div>
+        </div>
+        <div class="progress-wrap"><div class="progress-bar" id="st-bar" style="width:0%"></div></div>
+      </div>
+
+      <div class="card mt-16">
+        <div class="card-head">
+          <h3>🕘 Riwayat Terbaru</h3>
+          <span class="muted" id="ov-n">0 entry</span>
+        </div>
+        <div class="table-wrap">
+          <table id="ov-table">
+            <thead><tr><th>Waktu</th><th>Tipe</th><th>Engine</th><th>Latensi</th><th>Status</th></tr></thead>
+            <tbody id="ov-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOCS -->
+    <div class="page hidden" id="page-docs">
+      <div class="card">
+        <div class="card-head"><h3>📄 Dokumentasi API</h3><span class="mono muted">POST /solve</span></div>
+        <p class="mt-16 muted">Kirim satu JSON call, dapat token dalam detik. Sitekey auto-grab kalau tak diisi manual.</p>
+        <div class="terminal mt-16">
+          <div class="term-bar"><span class="title mono">POST /solve — turnstile_v2 (auto-grab sitekey)</span></div>
+          <div class="term-body mono">
+<span class="m"># tanpa sitekey manual — solver auto-detect</span>
+curl -s -X POST :<span class="y">9000</span>/solve -H 'Content-Type: application/json' -d '{
+  <span class="c">"type"</span>: <span class="g">"turnstile_v2"</span>,
+  <span class="c">"url"</span>: <span class="g">"https://example.com/login"</span>,
+  <span class="c">"backend"</span>: <span class="g">"camoufox"</span>
+}'
+<span class="g">→ { "token": "0x4AA…", "elapsed": 3.7, "engine": "camoufox", "sitekey": "..." }</span>
+          </div>
+        </div>
+        <div class="terminal mt-16">
+          <div class="term-bar"><span class="title mono">GET /solver/stats — live model</span></div>
+          <div class="term-body mono">
+curl -s :<span class="y">9000</span>/solver/stats
+<span class="g">→ { "total", "ok", "fail", "success_rate", "avg_ms", "history": [...] }</span>
+          </div>
+        </div>
+        <div class="terminal mt-16">
+          <div class="term-bar"><span class="title mono">GET /health — server health</span></div>
+          <div class="term-body mono">
+curl -s :<span class="y">9000</span>/health
+<span class="g">→ { "status": "ok", "supported_types": [...] }</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLAYGROUND -->
+    <div class="page hidden" id="page-playground">
+      <div class="card">
+        <div class="card-head"><h3>🛠 Playground</h3><span class="muted">uji solver langsung dari browser</span></div>
+        <div class="pg-form">
+          <div class="form-group"><label>Tipe</label>
+            <select id="f-type"><option value="turnstile_v2">turnstile_v2 (auto-grab)</option><option value="turnstile">turnstile (klasik)</option></select>
+          </div>
+          <div class="form-group"><label>Engine</label>
+            <select id="f-backend"><option value="camoufox">camoufox</option><option value="patchright">patchright</option></select>
+          </div>
+        </div>
+        <div class="form-group"><label>URL / Page</label>
+          <input id="f-url" value="https://nowsecure.nl/" placeholder="https://target.com/login">
+        </div>
+        <div class="form-group"><label>Sitekey <span class="muted">(opsional — kosong = auto-grab)</span></label>
+          <input id="f-sitekey" placeholder="0x4AAAAAAA... atau kosong">
+        </div>
+        <button class="btn btn-primary" id="btn-solve">▶ Solve</button>
+        <h3 class="muted mt-24" style="margin-bottom:10px">Respons</h3>
+        <div class="result" id="result">// hasil akan muncul di sini</div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="page hidden" id="page-history">
+      <div class="card">
+        <div class="card-head"><h3>🕘 Riwayat Semua Request</h3><span class="muted" id="hist-n">0 entry</span></div>
+        <div class="table-wrap">
+          <table id="hist-table">
+            <thead><tr><th>Waktu</th><th>Tipe</th><th>Engine</th><th>URL</th><th>Latensi</th><th>Token</th><th>Status</th></tr></thead>
+            <tbody id="hist-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODELS -->
+    <div class="page hidden" id="page-models">
+      <div class="card solver-card">
+        <div class="card-head">
+          <h3>🧠 Model Solver</h3>
+          <span class="muted" id="models-n">0 model</span>
+        </div>
+        <p class="muted" style="margin-top:10px">Performa per model/engine: berhasil, gagal, persentase, dan waktu respons (ms).</p>
+        <div class="table-wrap mt-16">
+          <table id="models-table">
+            <thead><tr><th>Model</th><th>Engine</th><th>Total</th><th>Berhasil</th><th>Gagal</th><th>Rate</th><th>Avg ms</th><th>Max ms</th></tr></thead>
+            <tbody id="models-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ENGINE -->
+    <div class="page hidden" id="page-engines">
+      <div class="grid features">
+        <div class="card"><div class="icon">🦊</div><h3>Camoufox</h3><p>Firefox stealth dengan fingerprint entropy asli, anti-bot resistant. Cocok untuk token hostname-aligned.</p></div>
+        <div class="card"><div class="icon">🔩</div><h3>Patchright</h3><p>Chromium hasil-patch tanpa artefak Playwright — konsistensi TLS &amp; lintas browser.</p></div>
+        <div class="card"><div class="icon">🪄</div><h3>curl_cffi Auto-grab</h3><p>curl_cffi (chrome TLS fingerprint) auto-detect sitekey dari halaman target. Tak perlu manual.</p></div>
+        <div class="card"><div class="icon">🔒</div><h3>Real-page Mode</h3><p>Navigasi halaman asli, klik checkbox, harvest token — lolos siteverify selektif.</p></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="assets/app.js"></script>
+</body>
+</html>
