@@ -61,6 +61,7 @@ body {
 }
 .side-link .ic { font-size: 17px; width: 22px; text-align: center; }
 .side-link:hover { background: rgba(148,163,184,.07); color: var(--txt); }
+.side-link:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .side-link.active {
   background: linear-gradient(135deg, rgba(99,102,241,.18), rgba(34,211,238,.10));
   color: var(--txt); border-color: rgba(99,102,241,.35);
@@ -89,6 +90,10 @@ body {
 /* Live badge & pulse */
 .live-badge { display: inline-flex; align-items: center; gap: 7px; font-size: .78rem; font-weight: 600; color: var(--green); background: rgba(52,211,153,.12); padding: 4px 11px; border-radius: 999px; }
 .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pls 1.4s infinite; display: inline-block; }
+.stats-status { margin-bottom: 16px; font-size: .85rem; }
+.stats-error { color: var(--red); }
+.live-badge[data-state="loading"] { color: var(--muted); background: rgba(148,163,184,.12); }
+.live-badge[data-state="error"] { color: var(--red); background: rgba(251,113,133,.12); }
 @keyframes pls { 0%,100% { opacity: 1; transform: scale(1);} 50% { opacity: .35; transform: scale(.75);} }
 
 /* Stats */
