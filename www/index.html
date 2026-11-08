@@ -21,16 +21,15 @@
       <span class="logo-txt">Beryl<b>Solver</b></span>
     </div>
     <nav class="side-nav">
-      <a class="side-link active" data-page="overview"><span class="ic">📊</span> Overview</a>
-      <a class="side-link" data-page="docs"><span class="ic">📄</span> Docs</a>
-      <a class="side-link" data-page="playground"><span class="ic">🛠</span> Playground</a>
-      <a class="side-link" data-page="history"><span class="ic">🕘</span> History</a>
-      <a class="side-link" data-page="models"><span class="ic">🧠</span> Models</a>
-      <a class="side-link" data-page="engines"><span class="ic">⚙️</span> Engine</a>
+      <a class="side-link active" href="#overview" data-page="overview" aria-current="page"><span class="ic">📊</span> Overview</a>
+      <a class="side-link" href="#docs" data-page="docs"><span class="ic">📄</span> Docs</a>
+      <a class="side-link" href="#playground" data-page="playground"><span class="ic">🛠</span> Playground</a>
+      <a class="side-link" href="#history" data-page="history"><span class="ic">🕘</span> History</a>
+      <a class="side-link" href="#models" data-page="models"><span class="ic">🧠</span> Models</a>
+      <a class="side-link" href="#engines" data-page="engines"><span class="ic">⚙️</span> Engine</a>
     </nav>
     <div class="side-foot">
-      <span class="pulse-dot"></span>
-      <span class="muted">:9000 · live</span>
+      <span class="muted" id="connection-state">Menghubungkan…</span>
     </div>
   </aside>
 
@@ -48,13 +47,14 @@
         <span class="mono muted" id="uptime" style="font-size:.78rem;align-self:center">uptime: 0s</span>
       </div>
     </header>
+    <p class="muted stats-status" id="stats-status" role="status">Memuat statistik…</p>
 
     <!-- OVERVIEW -->
     <div class="page" id="page-overview">
       <div class="card solver-card">
         <div class="card-head">
           <h3>🌀 Solver Model — Live</h3>
-          <span class="live-badge"><span class="pulse-dot"></span> live</span>
+          <span class="live-badge" id="stats-badge" data-state="loading">Memuat…</span>
         </div>
         <div class="stat-grid" id="stat-grid">
           <div class="stat"><div class="stat-val" id="st-total">0</div><div class="stat-lbl">Total Req</div></div>
