@@ -252,16 +252,21 @@ def _normalize(raw: str) -> str | None:
         u = urlparse(raw)
         if not u.hostname or not u.port:
             return None
-        auth = f"{u.username}:{u.password}@" if u.username else ""
-        return f"{u.scheme}://{auth}{u.hostname}:{u.port}"
+        auth = ""
+        if u.username is not None:
+            password = f":{u.password}" if u.password is not None else ""
+            auth = f"{u.username}{password}@"
+        host = f"[{u.hostname}]" if ":" in u.hostname else u.hostname
+        return f"{u.scheme}://{auth}{host}:{u.port}"
     except ValueError:
         return None
 
 
 def _hostport(url: str) -> str:
     try:
-        u = urlparse(url)
-        return f"{u.hostname}:{u.port}"
+        u = urlparse(url if "://" in url else f"http://{url}")
+        host = f"[{u.hostname}]" if u.hostname and ":" in u.hostname else u.hostname
+        return f"{host}:{u.port}"
     except ValueError:
         return url
 
@@ -270,8 +275,8 @@ def _mask(url: str) -> str:
     """scheme://user:***@host:port — never echo credentials to the API."""
     try:
         u = urlparse(url)
-        auth = f"{u.username}:***@" if u.username else ""
-        return f"{u.scheme}://{auth}{u.hostname}:{u.port}"
+        auth = f"{u.username}:***@" if u.username is not None else ""
+        return f"{u.scheme}://{auth}{_hostport(url)}"
     except ValueError:
         return "opaque"
 
@@ -279,7 +284,7 @@ def _mask(url: str) -> str:
 async def _tcp_ok(hostport: str) -> bool:
     try:
         host, port = hostport.rsplit(":", 1)
-        fut = asyncio.open_connection(host, int(port))
+        fut = asyncio.open_connection(host.removeprefix("[").removesuffix("]"), int(port))
         reader, writer = await asyncio.wait_for(fut, timeout=_TCP_TIMEOUT)
         writer.close()
         try:

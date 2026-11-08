@@ -213,6 +213,20 @@ Self-hosted rotation à la CapSolver proxyless/proxied — solver stays local, e
 through your own proxies. List persists to `proxies.txt`; health is tracked with a
 cooldown ladder (60s → 120s → 300s → dead) and a background checker.
 
+**Datacenter proxies:** use the same per-request `proxy` field or pool; no separate
+IP-type setting is required. Pool entries accept `host:port` (defaults to HTTP)
+or full proxy URLs. Use a full URL for direct requests. IPv6 addresses must be
+bracketed, for example `http://[2001:db8::1]:8080` or
+`http://user:password@[2001:db8::1]:8080`. Percent-encode reserved characters in
+credentials (`@` → `%40`, `:` → `%3A`); username-only credentials are preserved
+without inventing a password. Protocol/authentication support still depends on
+the selected solver's browser or HTTP client.
+
+Proxy connectivity is not CAPTCHA acceptance: pool health checks do not establish
+that a provider accepts the exit IP. Datacenter IPs can still be challenged or
+rejected. Verify only against targets you own or are authorized to test; changing
+proxy settings does not guarantee a bypass.
+
 ```bash
 # populate
 curl -X POST :8877/pool -H 'Content-Type: application/json' \

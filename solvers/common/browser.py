@@ -122,7 +122,8 @@ def _normalize_proxy(proxy: str | dict) -> str | dict:
     if p.username is None and p.password is None:
         return proxy
     port = f":{p.port}" if p.port else ""
-    server = f"{p.scheme or 'http'}://{p.hostname}{port}"
+    host = f"[{p.hostname}]" if ":" in p.hostname else p.hostname
+    server = f"{p.scheme or 'http'}://{host}{port}"
     return {
         "server": server,
         "username": unquote(p.username or ""),
