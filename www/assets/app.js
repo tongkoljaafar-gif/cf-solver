@@ -12,8 +12,12 @@
   const $ = (id) => document.getElementById(id);
 
   function switchPage(name) {
-    document.querySelectorAll(".side-link").forEach((a) =>
-      a.classList.toggle("active", a.dataset.page === name));
+    document.querySelectorAll(".side-link").forEach((a) => {
+      const active = a.dataset.page === name;
+      a.classList.toggle("active", active);
+      if (active) a.setAttribute("aria-current", "page");
+      else a.removeAttribute("aria-current");
+    });
     document.querySelectorAll(".page").forEach((p) => {
       p.classList.toggle("hidden", p.id !== "page-" + name);
     });
@@ -21,11 +25,14 @@
     $("psub").textContent = TITLES[name][1];
   }
 
-  document.querySelectorAll(".side-link").forEach((a) =>
-    a.addEventListener("click", () => {
-      switchPage(a.dataset.page);
-      if (a.dataset.page === "history" || a.dataset.page === "overview" || a.dataset.page === "models") loadStats();
-    }));
+  function route() {
+    const requested = location.hash.slice(1);
+    const name = Object.hasOwn(TITLES, requested) ? requested : "overview";
+    switchPage(name);
+    if (["history", "overview", "models"].includes(name)) loadStats();
+  }
+
+  window.addEventListener("hashchange", route);
 
   // ── Stats / history rendering ─────────────────────────────
   function esc(s) {
@@ -88,16 +95,44 @@
       "<tr><td colspan='8' class='muted'>Belum ada data model.</td></tr>";
   }
 
+  let statsLoading = false;
+  let lastUpdated = null;
+
   async function loadStats() {
+    if (statsLoading) return;
+    statsLoading = true;
+    const refresh = $("btn-refresh");
+    refresh.disabled = true;
+    refresh.textContent = "↻ Memuat…";
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 10000);
     try {
-      const r = await fetch("/solver/stats");
+      const r = await fetch("/solver/stats", { signal: ctrl.signal });
+      if (!r.ok) throw new Error("HTTP " + r.status);
       const d = await r.json();
       fillStats(d);
       fillOverviewTable(d.history || []);
       fillHistoryTable(d.history || []);
       fillModelsTable(d.models || []);
+      lastUpdated = new Date().toLocaleTimeString("id-ID");
+      $("stats-status").textContent = "Diperbarui: " + lastUpdated;
+      $("stats-status").classList.remove("stats-error");
+      $("connection-state").textContent = "Terhubung · live";
+      $("stats-badge").textContent = "live";
+      $("stats-badge").dataset.state = "live";
     } catch (e) {
-      // silent — server may be busy solving
+      $("stats-status").textContent = "Gagal memuat statistik. " +
+        (lastUpdated ? "Data terakhir: " + lastUpdated + ". " : "Data belum tersedia. ") +
+        "Klik Refresh untuk mencoba lagi; otomatis dicoba tiap 5 detik.";
+      $("stats-status").classList.add("stats-error");
+      $("connection-state").textContent = "Statistik tidak tersedia";
+      $("stats-badge").textContent = lastUpdated ? "Data lama" : "Tidak tersedia";
+      $("stats-badge").dataset.state = "error";
+    } finally {
+      clearTimeout(timeout);
+      statsLoading = false;
+      refresh.disabled = false;
+      refresh.textContent = "↻ Refresh";
     }
   }
 
@@ -148,7 +183,7 @@
   });
 
   // ── Init ─────────────────────────────────────────────────
-  switchPage("overview");
+  route();
   loadStats();
   setInterval(loadStats, 5000); // live auto-refresh
 })();
